@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/ghp3000/screenshot"
 	"image"
 	"image/png"
 	"os"
 	"runtime"
 	"strconv"
 	"time"
+
+	"github.com/ghp3000/screenshot"
 )
 
 // save *image.RGBA to filePath with PNG format.
@@ -57,7 +58,7 @@ func save(img *image.RGBA, filePath string) {
 func main() {
 	runtime.LockOSThread()
 	var err error
-	shot := screenshot.NewScreenShot(1)
+	shot := screenshot.NewScreenShot(0)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -74,16 +75,16 @@ func main() {
 	for i := 0; i < 10; i++ {
 		start = time.Now()
 		img, err := shot.Capture()
-		//_, err := screenshot.Capture(0, 0, 1920, 1080)
+		// _, err := screenshot.Capture(0, 0, 1920, 1080)
 		if err != nil {
 			fmt.Println(err)
-			//return
+			// return
 		} else {
 			fmt.Println(time.Since(start))
 			save(img, strconv.FormatInt(time.Now().UnixNano(), 10)+".png")
 		}
 
-		//time.Sleep(time.Millisecond * 30)
+		// time.Sleep(time.Millisecond * 30)
 	}
 	fmt.Println(time.Since(start))
 }
