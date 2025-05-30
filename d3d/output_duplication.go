@@ -3,9 +3,10 @@ package d3d
 import (
 	"errors"
 	"fmt"
-	"github.com/ghp3000/screenshot/swizzle"
 	"image"
 	"unsafe"
+
+	"github.com/ghp3000/screenshot/swizzle"
 )
 
 type PointerInfo struct {
@@ -351,6 +352,43 @@ func (dup *OutputDuplicator) Snapshot(timeoutMs uint) (unmapFn, *DXGI_MAPPED_REC
 	}
 	return dup.surface.Unmap, &dup.mappedRect, &dup.size, nil
 }
+
+func (dup *OutputDuplicator) GetDynamicImage(timeoutMs uint, cursor bool) (*image.RGBA, error) {
+	dup.DrawPointer = cursor
+	unmap, mappedRect, size, err := dup.Snapshot2(timeoutMs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dynamic image: %w", err)
+	}
+
+	img := image.NewRGBA(image.Rect(0, 0, int(size.X), int(size.Y)))
+
+	defer unmap()
+	hMem := mappedRect.PBits
+
+	bitmapDataSize := int32(((int64(size.X)*32 + 31) / 32) * 4 * int64(size.Y))
+
+	// copy source bytes into image.RGBA.Pix using memory interpretation
+	imageBytes := ((*[1 << 30]byte)(unsafe.Pointer(hMem)))[:bitmapDataSize:bitmapDataSize]
+	copy(img.Pix[:bitmapDataSize], imageBytes)
+	dup.drawPointer(img)
+	if dup.needsSwizzle {
+		swizzle.BGRA(img.Pix)
+	}
+
+	// manual swizzle B <-> R
+
+	// for i := int32(0); i < bitmapDataSize; i += 4 {
+	// 	v0 := *(*uint8)(unsafe.Pointer(hMem + uintptr(i)))
+	// 	v1 := *(*uint8)(unsafe.Pointer(hMem + uintptr(i) + 1))
+	// 	v2 := *(*uint8)(unsafe.Pointer(hMem + uintptr(i) + 2))
+
+	// 	// BGRA => RGBA, no need to read alpha, always 255.
+	// 	img.Pix[i], img.Pix[i+1], img.Pix[i+2], img.Pix[i+3] = v2, v1, v0, 255
+	// }
+
+	return img, nil
+}
+
 func (dup *OutputDuplicator) GetImage(img *image.RGBA, timeoutMs uint, cursor bool) error {
 	dup.DrawPointer = cursor
 	unmap, mappedRect, size, err := dup.Snapshot2(timeoutMs)
@@ -416,7 +454,8 @@ func (dup *OutputDuplicator) updatePointer(info *DXGI_OUTDUPL_FRAME_INFO) error 
 		var requiredSize uint32
 		var pointerInfo DXGI_OUTDUPL_POINTER_SHAPE_INFO
 
-		hr := dup.outputDuplication.GetFramePointerShape(info.PointerShapeBufferSize,
+		hr := dup.outputDuplication.GetFramePointerShape(
+			info.PointerShapeBufferSize,
 			dup.pointerInfo.shapeInBuffer,
 			&requiredSize,
 			&pointerInfo,
@@ -425,7 +464,11 @@ func (dup *OutputDuplicator) updatePointer(info *DXGI_OUTDUPL_FRAME_INFO) error 
 			return fmt.Errorf("unable to obtain frame pointer shape")
 		}
 		neededSize := pointerInfo.Width * pointerInfo.Height * 4
-		dup.pointerInfo.shapeOutBuffer = image.NewRGBA(image.Rect(0, 0, int(pointerInfo.Width), int(pointerInfo.Height)))
+		dup.pointerInfo.shapeOutBuffer = image.NewRGBA(
+			image.Rect(
+				0, 0, int(pointerInfo.Width), int(pointerInfo.Height),
+			),
+		)
 		if len(dup.pointerInfo.shapeOutBuffer.Pix) < int(neededSize) {
 			dup.pointerInfo.shapeOutBuffer.Pix = make([]byte, neededSize)
 		}

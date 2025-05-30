@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"log"
-	"math"
 	"sync"
 	"sync/atomic"
 
@@ -60,22 +59,18 @@ func (s *DXGIScreenshot) Capture() (*image.RGBA, error) {
 	}
 
 	// Do not use s.rect directly, because left and top may be negative
-	width := s.rect.Dx()
-	height := s.rect.Dy()
-	// Also get Absolute of width and height
-	width = int(math.Abs(float64(width)))
-	height = int(math.Abs(float64(height)))
-	var imgBuf *image.RGBA
+	// width := s.rect.Dx()
+	// height := s.rect.Dy()
+	// // Also get Absolute of width and height
+	// width = int(math.Abs(float64(width)))
+	// height = int(math.Abs(float64(height)))
 	once.Do(
 		func() {
 			log.Printf("DXGI screenshot: display %d, rect %v", s.display, s.rect)
 		},
 	)
-	err := s.ddup.GetImage(imgBuf, 0, atomic.LoadInt32(&s.cursor) == 1)
-	if err != nil {
-		return nil, err
-	}
-	return imgBuf, err
+	imgBug, err := s.ddup.GetDynamicImage(0, atomic.LoadInt32(&s.cursor) == 1)
+	return imgBug, err
 }
 
 func (s *DXGIScreenshot) CaptureBGRA() (*image.RGBA, error) {
