@@ -3,14 +3,15 @@ package screenshot
 import (
 	"errors"
 	"fmt"
-	"github.com/ghp3000/screenshot/internal/util"
-	"github.com/ghp3000/screenshot/swizzle"
-	"github.com/lxn/win"
 	"image"
 	"reflect"
 	"sync/atomic"
 	"syscall"
 	"unsafe"
+
+	"github.com/ghp3000/screenshot/internal/util"
+	"github.com/ghp3000/screenshot/swizzle"
+	"github.com/lxn/win"
 )
 
 var (
@@ -72,7 +73,10 @@ func Capture(x, y, width, height int) (*image.RGBA, error) {
 		return nil, errors.New("BitBlt failed")
 	}
 
-	if win.GetDIBits(hdc, bitmap, 0, uint32(height), (*uint8)(memptr), (*win.BITMAPINFO)(unsafe.Pointer(&header)), win.DIB_RGB_COLORS) == 0 {
+	if win.GetDIBits(
+		hdc, bitmap, 0, uint32(height), (*uint8)(memptr), (*win.BITMAPINFO)(unsafe.Pointer(&header)),
+		win.DIB_RGB_COLORS,
+	) == 0 {
 		return nil, errors.New("GetDIBits failed")
 	}
 
@@ -113,9 +117,12 @@ func GetDisplayBounds(displayIndex int) image.Rectangle {
 	ctx.Index = displayIndex
 	ctx.Count = 0
 	enumDisplayMonitors(win.HDC(0), nil, syscall.NewCallback(getMonitorBoundsCallback), uintptr(unsafe.Pointer(&ctx)))
+	// we need to ensure that bound are not negative
+
 	return image.Rect(
 		int(ctx.Rect.Left), int(ctx.Rect.Top),
-		int(ctx.Rect.Right), int(ctx.Rect.Bottom))
+		int(ctx.Rect.Right), int(ctx.Rect.Bottom),
+	)
 }
 
 func getDesktopWindow() win.HWND {
@@ -124,13 +131,15 @@ func getDesktopWindow() win.HWND {
 }
 
 func enumDisplayMonitors(hdc win.HDC, lprcClip *win.RECT, lpfnEnum uintptr, dwData uintptr) bool {
-	ret, _, _ := syscall.Syscall6(funcEnumDisplayMonitors, 4,
+	ret, _, _ := syscall.Syscall6(
+		funcEnumDisplayMonitors, 4,
 		uintptr(hdc),
 		uintptr(unsafe.Pointer(lprcClip)),
 		lpfnEnum,
 		dwData,
 		0,
-		0)
+		0,
+	)
 	return int(ret) != 0
 }
 
@@ -147,7 +156,9 @@ type getMonitorBoundsContext struct {
 	Count int
 }
 
-func getMonitorBoundsCallback(hMonitor win.HMONITOR, hdcMonitor win.HDC, lprcMonitor *win.RECT, dwData uintptr) uintptr {
+func getMonitorBoundsCallback(
+	hMonitor win.HMONITOR, hdcMonitor win.HDC, lprcMonitor *win.RECT, dwData uintptr,
+) uintptr {
 	var ctx *getMonitorBoundsContext
 	ctx = (*getMonitorBoundsContext)(unsafe.Pointer(dwData))
 	if ctx.Count != ctx.Index {
@@ -207,7 +218,10 @@ func getMonitorRealSize(hMonitor win.HMONITOR) *win.RECT {
 	devMode := _DEVMODE{}
 	devMode.DmSize = uint16(unsafe.Sizeof(devMode))
 
-	if ret, _, _ := syscall.Syscall(funcEnumDisplaySettings, 3, uintptr(unsafe.Pointer(&info.DeviceName[0])), _ENUM_CURRENT_SETTINGS, uintptr(unsafe.Pointer(&devMode))); ret == 0 {
+	if ret, _, _ := syscall.Syscall(
+		funcEnumDisplaySettings, 3, uintptr(unsafe.Pointer(&info.DeviceName[0])), _ENUM_CURRENT_SETTINGS,
+		uintptr(unsafe.Pointer(&devMode)),
+	); ret == 0 {
 		return nil
 	}
 
@@ -228,7 +242,7 @@ type GDIScreenshot struct {
 	header        win.BITMAPINFOHEADER
 	hmem          win.HGLOBAL
 	ptr           unsafe.Pointer
-	display       int //截取哪个屏幕
+	display       int // 截取哪个屏幕
 	cursor        int32
 }
 
@@ -296,7 +310,9 @@ func (s *GDIScreenshot) Capture() (*image.RGBA, error) {
 	}
 	defer win.SelectObject(s.memory_device, old)
 
-	if !win.BitBlt(s.memory_device, 0, 0, int32(width), int32(height), s.hdc, int32(x), int32(y), win.SRCCOPY|win.CAPTUREBLT) {
+	if !win.BitBlt(
+		s.memory_device, 0, 0, int32(width), int32(height), s.hdc, int32(x), int32(y), win.SRCCOPY|win.CAPTUREBLT,
+	) {
 		return nil, errors.New("BitBlt failed")
 	}
 	if atomic.LoadInt32(&s.cursor) == 1 {
@@ -338,7 +354,10 @@ func (s *GDIScreenshot) CaptureBGRA() (*image.RGBA, error) {
 		return nil, errors.New("SelectObject failed")
 	}
 	defer win.SelectObject(s.memory_device, old)
-	if !win.BitBlt(s.memory_device, 0, 0, int32(x), int32(y), s.hdc, int32(s.rect.Min.X), int32(s.rect.Min.Y), win.SRCCOPY|win.CAPTUREBLT) {
+	if !win.BitBlt(
+		s.memory_device, 0, 0, int32(x), int32(y), s.hdc, int32(s.rect.Min.X), int32(s.rect.Min.Y),
+		win.SRCCOPY|win.CAPTUREBLT,
+	) {
 		return nil, errors.New("BitBlt failed")
 	}
 	var slice []byte
@@ -346,7 +365,7 @@ func (s *GDIScreenshot) CaptureBGRA() (*image.RGBA, error) {
 	hdrp.Data = uintptr(s.ptr)
 	hdrp.Len = x * y * 4
 	hdrp.Cap = x * y * 4
-	//swizzle.BGRA(slice)
+	// swizzle.BGRA(slice)
 	img := image.NewRGBA(image.Rect(0, 0, x, y))
 	copy(img.Pix, slice)
 	return img, nil

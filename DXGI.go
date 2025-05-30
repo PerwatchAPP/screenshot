@@ -2,9 +2,10 @@ package screenshot
 
 import (
 	"fmt"
-	"github.com/ghp3000/screenshot/d3d"
 	"image"
 	"sync/atomic"
+
+	"github.com/ghp3000/screenshot/d3d"
 )
 
 type DXGIScreenshot struct {
@@ -12,7 +13,7 @@ type DXGIScreenshot struct {
 	device    *d3d.ID3D11Device
 	deviceCtx *d3d.ID3D11DeviceContext
 	ddup      *d3d.OutputDuplicator
-	display   int //截取哪个屏幕
+	display   int // 截取哪个屏幕
 	cursor    int32
 }
 
@@ -53,7 +54,10 @@ func (s *DXGIScreenshot) Capture() (*image.RGBA, error) {
 		}
 	}
 
-	imgBuf := image.NewRGBA(s.rect)
+	// Do not use s.rect directly, because left and top may be negative
+	width := s.rect.Dx()
+	height := s.rect.Dy()
+	imgBuf := image.NewRGBA(image.Rect(0, 0, width, height))
 
 	err := s.ddup.GetImage(imgBuf, 0, atomic.LoadInt32(&s.cursor) == 1)
 	if err != nil {
