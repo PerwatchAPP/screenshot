@@ -3,6 +3,7 @@ package screenshot
 import (
 	"fmt"
 	"image"
+	"math"
 	"sync/atomic"
 
 	"github.com/ghp3000/screenshot/d3d"
@@ -57,6 +58,9 @@ func (s *DXGIScreenshot) Capture() (*image.RGBA, error) {
 	// Do not use s.rect directly, because left and top may be negative
 	width := s.rect.Dx()
 	height := s.rect.Dy()
+	// Also get Absolute of width and height
+	width = int(math.Abs(float64(width)))
+	height = int(math.Abs(float64(height)))
 	imgBuf := image.NewRGBA(image.Rect(0, 0, width, height))
 
 	err := s.ddup.GetImage(imgBuf, 0, atomic.LoadInt32(&s.cursor) == 1)
