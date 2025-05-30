@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ghp3000/screenshot"
+	displays2 "github.com/ghp3000/screenshot/d3d/displays"
 )
 
 // save *image.RGBA to filePath with PNG format.
@@ -57,6 +58,7 @@ func save(img *image.RGBA, filePath string) {
 */
 func main() {
 	runtime.LockOSThread()
+	displays := displays2.GetFromGDI()
 	var err error
 	shot := screenshot.NewScreenShot(0)
 	if err != nil {

@@ -97,6 +97,15 @@ func (dup *OutputDuplicator) ReleaseFrame() {
 	}
 }
 
+func (dup *OutputDuplicator) GetDesc() (*DXGI_OUTDUPL_DESC, error) {
+	var desc DXGI_OUTDUPL_DESC
+	hr := dup.outputDuplication.GetDesc(&desc)
+	if failed(hr) {
+		return nil, fmt.Errorf("failed to get description. %w", HRESULT(hr))
+	}
+	return &desc, nil
+}
+
 // returns DXGI_FORMAT_B8G8R8A8_UNORM data
 func (dup *OutputDuplicator) Snapshot2(timeoutMs uint) (unmapFn, *DXGI_MAPPED_RECT, *POINT, error) {
 	var hr int32
