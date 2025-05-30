@@ -3,7 +3,9 @@ package screenshot
 import (
 	"fmt"
 	"image"
+	"log"
 	"math"
+	"sync"
 	"sync/atomic"
 
 	"github.com/ghp3000/screenshot/d3d"
@@ -42,6 +44,8 @@ func (s *DXGIScreenshot) Init(display int) error {
 	return nil
 }
 
+var once sync.Once
+
 func (s *DXGIScreenshot) Capture() (*image.RGBA, error) {
 	if s.ddup == nil {
 		return nil, fmt.Errorf("no init,please run Init first")
@@ -61,8 +65,12 @@ func (s *DXGIScreenshot) Capture() (*image.RGBA, error) {
 	// Also get Absolute of width and height
 	width = int(math.Abs(float64(width)))
 	height = int(math.Abs(float64(height)))
-	imgBuf := image.NewRGBA(image.Rect(0, 0, width, height))
-
+	var imgBuf *image.RGBA
+	once.Do(
+		func() {
+			log.Printf("DXGI screenshot: display %d, rect %v", s.display, s.rect)
+		},
+	)
 	err := s.ddup.GetImage(imgBuf, 0, atomic.LoadInt32(&s.cursor) == 1)
 	if err != nil {
 		return nil, err
